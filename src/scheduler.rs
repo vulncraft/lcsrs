@@ -21,7 +21,6 @@ impl Rating {
             Rating::Easy => "easy",
         }
     }
-
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -114,7 +113,12 @@ pub fn apply(prev: &CurrentState, rating: Rating, now: DateTime<Utc>) -> Result<
         Rating::Again => CardState::Relearning,
         _ => CardState::Review,
     };
-    let lapses = prev.lapses + if matches!(rating, Rating::Again) { 1 } else { 0 };
+    let lapses = prev.lapses
+        + if matches!(rating, Rating::Again) {
+            1
+        } else {
+            0
+        };
     let interval_days = item_state.interval.max(1.0).round() as i64;
     let due = now + Duration::days(interval_days);
 
