@@ -1,0 +1,80 @@
+name: Release-plz
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-plz:
+    name: release-plz
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
+    outputs:
+      releases_created: ${{ steps.release-plz.outputs.releases_created }}
+      releases: ${{ steps.release-plz.outputs.releases }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - id: release-plz
+        uses: MarcoIeni/release-plz-action@v0.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-binaries:
+    name: upload ${{ matrix.target }}
+    needs: release-plz
+    if: ${{ needs.release-plz.outputs.releases_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install musl tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get install -y musl-tools
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Resolve release tag
+        id: tag
+        run: |
+          tag=$(echo '${{ needs.release-plz.outputs.releases }}' | jq -r '.[0].tag')
+          if [ -z "$tag" ] || [ "$tag" = "null" ]; then
+            echo "no tag in release-plz output" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Package binary
+        id: pkg
+        run: |
+          name="lcsrs-${{ steps.tag.outputs.tag }}-${{ matrix.target }}"
+          tar -C "target/${{ matrix.target }}/release" -czf "${name}.tar.gz" lcsrs
+          sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256"
+          echo "archive=${name}.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "checksum=${name}.tar.gz.sha256" >> "$GITHUB_OUTPUT"
+      - name: Upload to GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ steps.tag.outputs.tag }}" \
+            "${{ steps.pkg.outputs.archive }}" \
+            "${{ steps.pkg.outputs.checksum }}" \
+            --clobber
