@@ -9,8 +9,8 @@ pub fn db_path() -> Result<PathBuf> {
     if let Ok(p) = std::env::var("LCSRS_DB") {
         return Ok(PathBuf::from(p));
     }
-    let dirs = ProjectDirs::from("", "", "lcsrs")
-        .context("could not determine XDG data directory")?;
+    let dirs =
+        ProjectDirs::from("", "", "lcsrs").context("could not determine XDG data directory")?;
     let dir = dirs.data_dir();
     std::fs::create_dir_all(dir).with_context(|| format!("creating {}", dir.display()))?;
     Ok(dir.join("lcsrs.db"))

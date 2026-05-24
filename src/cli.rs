@@ -2,7 +2,11 @@ use chrono::NaiveDate;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
-#[command(name = "lcsrs", version, about = "Spaced-repetition scheduler for LeetCode-style problems")]
+#[command(
+    name = "lcsrs",
+    version,
+    about = "Spaced-repetition scheduler for LeetCode-style problems"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Command,

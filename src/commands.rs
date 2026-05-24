@@ -174,7 +174,8 @@ pub fn grade(conn: &mut Connection, args: GradeArgs) -> Result<()> {
 
 pub fn delete(conn: &Connection, args: DeleteArgs) -> Result<()> {
     let id = ids::resolve(conn, &args.id)?;
-    let title: String = conn.query_row("SELECT title FROM cards WHERE id = ?1", [id], |r| r.get(0))?;
+    let title: String =
+        conn.query_row("SELECT title FROM cards WHERE id = ?1", [id], |r| r.get(0))?;
     conn.execute("DELETE FROM cards WHERE id = ?1", [id])?;
     println!("Deleted card [{id}] \"{title}\".");
     Ok(())
@@ -197,20 +198,28 @@ pub fn list(conn: &Connection, args: ListArgs) -> Result<()> {
         return Ok(());
     }
 
-    let max_title = cards.iter().map(|c| c.title.chars().count()).max().unwrap_or(0).max(5);
+    let max_title = cards
+        .iter()
+        .map(|c| c.title.chars().count())
+        .max()
+        .unwrap_or(0)
+        .max(5);
     println!(
-        "{:>4}  {:<width$}  {:<6}  {}",
+        "{:>4}  {:<width$}  {:<6}  due",
         "id",
         "title",
         "diff",
-        "due",
         width = max_title
     );
     for c in &cards {
         let diff = c.difficulty.as_deref().unwrap_or("-");
         let due = relative_time(now, c.due);
         let tags = card_tags(conn, c.id)?;
-        let tag_str = if tags.is_empty() { String::new() } else { format!("  [{}]", tags.join(", ")) };
+        let tag_str = if tags.is_empty() {
+            String::new()
+        } else {
+            format!("  [{}]", tags.join(", "))
+        };
         println!(
             "{:>4}  {:<width$}  {:<6}  {due}{tag_str}",
             c.id,
@@ -348,11 +357,9 @@ fn card_tags(conn: &Connection, card_id: i64) -> Result<Vec<String>> {
 
 fn find_by_url(conn: &Connection, url: &str) -> Result<Option<(i64, String)>> {
     Ok(conn
-        .query_row(
-            "SELECT id, title FROM cards WHERE url = ?1",
-            [url],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        )
+        .query_row("SELECT id, title FROM cards WHERE url = ?1", [url], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })
         .optional()?)
 }
 
@@ -397,8 +404,13 @@ fn load_card_state(conn: &Connection, id: i64) -> Result<CurrentState> {
                 last_review: r.get(2)?,
                 reps: r.get(3)?,
                 lapses: r.get(4)?,
-                state: CardState::parse(&r.get::<_, String>(5)?)
-                    .map_err(|e| rusqlite::Error::FromSqlConversionFailure(5, rusqlite::types::Type::Text, e.into()))?,
+                state: CardState::parse(&r.get::<_, String>(5)?).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        5,
+                        rusqlite::types::Type::Text,
+                        e.into(),
+                    )
+                })?,
             })
         },
     )
